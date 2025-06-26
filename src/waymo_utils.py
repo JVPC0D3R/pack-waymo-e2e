@@ -52,14 +52,14 @@ def get_ego_img(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
 
     order = [2,1,3,4,5,6,7,8]
     keys = {
-        2: "img_front_left",
-        1: "img_front",
-        3: "img_front_right",
-        4: "img_side_left",
-        5: "img_side_right",
-        6: "img_rear_left",
-        7: "img_rear",
-        8: "img_rear_right"
+        2: "front_left",
+        1: "front",
+        3: "front_right",
+        4: "side_left",
+        5: "side_right",
+        6: "rear_left",
+        7: "rear",
+        8: "rear_right"
     }
 
     for camera_name in order:
@@ -68,7 +68,9 @@ def get_ego_img(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
                 calibration = data.frame.context.camera_calibrations[index]
                 image = tf.io.decode_image(image_content.image).numpy()
 
-                e2ed_data[f"agent/{keys[camera_name]}"] = image
+                e2ed_data[f"agent/{keys[camera_name]}/img"] = image
+                e2ed_data[f"agent/{keys[camera_name]}/calib/intr"] = np.array(calibration.intrinsic)
+                e2ed_data[f"agent/{keys[camera_name]}/calib/extr"] = np.array(calibration.extrinsic.transform)
                 break
 
 def get_ego_states(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
@@ -79,6 +81,8 @@ def get_ego_states(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
         e2ed_data: h5 dictionary
 
     """
+
+    e2ed_data["agent/pose"] = np.array(data.frame.images[0].pose.transform)
 
     e2ed_data["agent/pos"] = np.stack(
         [np.concatenate(
