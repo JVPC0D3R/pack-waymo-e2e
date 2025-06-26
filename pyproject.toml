@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]  # Ensures compatibility with the latest standards
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pack_waymo_e2e"
+version = "0.1.0"
+description = "Converts Waymo Open Dataset end to end driving data to h5 format"
+authors = [
+    { name = "Jaime Villa Plaza", email = "javillap@pa.uc3m.es" }
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["example", "package"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+dependencies = [
+    "requests",  # Add your package dependencies here
+    "numpy==1.23.5",
+    "h5py==3.12.1",
+    "waymo-open-dataset-tf-2-12-0==1.6.7",
+]
+
+[project.urls]
+Repository = "https://github.com/JVPC0D3R/pack-waymo-e2e"
+
+[tool.setuptools]
+package-dir = {"" = "src"}  # Maps the top-level directory to the src folder
+
+[tool.setuptools.packages.find]
+where = ["src"]  # Look for modules in the src folder
+include = ["pack_waymo_e2e*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pack_waymo_e2e.__version__" }  # Use your package's __version__ attribute for versioning
