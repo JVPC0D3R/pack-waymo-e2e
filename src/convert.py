@@ -72,7 +72,7 @@ if __name__ == "__main__":
         get_ego_states(data, e2ed_data)
 
         write_element_to_hptr_h5_file(
-                    out_file, str(num_samples), e2ed_data, metadata
-                )
+            out_file, str(num_samples), e2ed_data, metadata
+        )
+        
         num_samples += 1
-

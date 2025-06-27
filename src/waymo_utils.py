@@ -82,8 +82,26 @@ def get_ego_states(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
 
     """
 
+    # GO_STRAIGHT = 1 | GO_LEFT = 2 | GO_RIGHT = 3
+    e2ed_data["agent/intent"] = np.array([data.intent,])
+    
+    # Current twist
+    e2ed_data["agent/vel"] = np.stack(
+        [
+            data.frame.images[0].velocity.v_x,
+            data.frame.images[0].velocity.v_y,
+            data.frame.images[0].velocity.v_z,
+            data.frame.images[0].velocity.w_x,
+            data.frame.images[0].velocity.w_y,
+            data.frame.images[0].velocity.w_z,
+        ],
+        axis=0,
+    ) # [6] 
+
+    # Current pose (identity matrix)
     e2ed_data["agent/pose"] = np.array(data.frame.images[0].pose.transform)
 
+    # Total traj (x, y)
     e2ed_data["agent/pos"] = np.stack(
         [np.concatenate(
         [data.past_states.pos_x, data.future_states.pos_x], axis=0
@@ -92,26 +110,35 @@ def get_ego_states(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
         [data.past_states.pos_y, data.future_states.pos_y], axis=0
         )]
         , axis = 1
-    ) # no z available in the past [36, 2]
+    ) # [36, 2]
 
+    # History positions (x, y)
     e2ed_data["history/agent/pos"] = np.stack(
-        [data.past_states.pos_x, data.past_states.pos_y], axis=1
+        [
+        data.past_states.pos_x,
+        data.past_states.pos_y
+        ],
+        axis=1
+    ) # [16, 2] 4 seconds 4 Hz
+
+    e2ed_data["history/agent/vel"] = np.stack(
+        [
+        data.past_states.vel_x, 
+        data.past_states.vel_y
+        ], 
+        axis=1
     ) # no z available [16, 2]
 
+    e2ed_data["history/agent/acc"] = np.stack(
+        [data.past_states.accel_x, data.past_states.accel_y], axis=1
+    ) # no z available [16, 2]
+
+    # Future positions (x, y, z)
     e2ed_data["gt/pos"] = np.stack(
-        [data.future_states.pos_x, data.future_states.pos_y, data.future_states.pos_z], axis=1
-    ) # [20, 3]
-
-    e2ed_data["agent/vel"] = np.stack(
-        [np.concatenate(
-        [data.past_states.vel_x, data.future_states.vel_x], axis=0
-        ),
-        np.concatenate(
-        [data.past_states.vel_y, data.future_states.vel_y], axis=0
-        )]
-        , axis = 1
-    ) # no z available in the past [36, 2]
-
-    e2ed_data["history/agent/pos"] = np.stack(
-        [data.past_states.vel_x, data.past_states.vel_y], axis=1
-    ) # no z available [16, 2]
+        [
+        data.future_states.pos_x,
+        data.future_states.pos_y, 
+        data.future_states.pos_z
+        ], 
+        axis=1
+    ) # [20, 3] 5 seconds 4 Hz
