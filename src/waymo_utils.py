@@ -73,7 +73,10 @@ def get_ego_img(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
                 e2ed_data[f"agent/{keys[camera_name]}/calib/extr"] = np.array(calibration.extrinsic.transform)
                 break
 
-def get_ego_states(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
+def get_ego_states(
+        data: wod_e2ed_pb2.E2EDFrame, 
+        e2ed_data: Dict, 
+        mode: str)-> None:
     """Gets ego-vehicle past and future states.
 
     Args:
@@ -99,18 +102,19 @@ def get_ego_states(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
     ) # [6] 
 
     # Current pose (identity matrix)
-    e2ed_data["agent/pose"] = np.array(data.frame.images[0].pose.transform)
+    e2ed_data["hisotry/agent/pose"] = np.array(data.frame.images[0].pose.transform)
 
     # Total traj (x, y)
-    e2ed_data["agent/pos"] = np.stack(
-        [np.concatenate(
-        [data.past_states.pos_x, data.future_states.pos_x], axis=0
-        ),
-        np.concatenate(
-        [data.past_states.pos_y, data.future_states.pos_y], axis=0
-        )]
-        , axis = 1
-    ) # [36, 2]
+    if mode == "train" or mode == "val":
+        e2ed_data["agent/pos"] = np.stack(
+            [np.concatenate(
+            [data.past_states.pos_x, data.future_states.pos_x], axis=0
+            ),
+            np.concatenate(
+            [data.past_states.pos_y, data.future_states.pos_y], axis=0
+            )]
+            , axis = 1
+        ) # [36, 2]
 
     # History positions (x, y)
     e2ed_data["history/agent/pos"] = np.stack(
@@ -133,12 +137,22 @@ def get_ego_states(data: wod_e2ed_pb2.E2EDFrame, e2ed_data: Dict) -> None:
         [data.past_states.accel_x, data.past_states.accel_y], axis=1
     ) # no z available [16, 2]
 
+    # Rater Feedback
+    if mode == "val":
+        e2ed_data["gt/preference_scores"] = np.stack([
+            data.preference_trajectories[0].preference_score,
+            data.preference_trajectories[1].preference_score,
+            data.preference_trajectories[2].preference_score
+        ])
+    #TODO add rater trajs
+
     # Future positions (x, y, z)
-    e2ed_data["gt/pos"] = np.stack(
-        [
-        data.future_states.pos_x,
-        data.future_states.pos_y, 
-        data.future_states.pos_z
-        ], 
-        axis=1
-    ) # [20, 3] 5 seconds 4 Hz
+    if mode == "train" or mode == "val":
+        e2ed_data["gt/pos"] = np.stack(
+            [
+            data.future_states.pos_x,
+            data.future_states.pos_y, 
+            data.future_states.pos_z
+            ], 
+            axis=1
+        ) # [20, 3] 5 seconds 4 Hz

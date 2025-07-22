@@ -69,7 +69,7 @@ if __name__ == "__main__":
         e2ed_data = {}
 
         get_ego_img(data, e2ed_data)
-        get_ego_states(data, e2ed_data)
+        get_ego_states(data, e2ed_data, mode)
 
         write_element_to_hptr_h5_file(
             out_file, str(num_samples), e2ed_data, metadata
