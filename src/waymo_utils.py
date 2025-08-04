@@ -102,7 +102,7 @@ def get_ego_states(
     ) # [6] 
 
     # Current pose (identity matrix)
-    e2ed_data["hisotry/agent/pose"] = np.array(data.frame.images[0].pose.transform)
+    e2ed_data["history/agent/pose"] = np.array(data.frame.images[0].pose.transform)
 
     # Total traj (x, y)
     if mode == "train" or mode == "val":
