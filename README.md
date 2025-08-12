@@ -1,6 +1,6 @@
 # Pack WOD End to End Driving
 
-![res/traj_no_front_view.png]
+![demo](res/traj_no_front_view.png)
 
 ### Installation
 
