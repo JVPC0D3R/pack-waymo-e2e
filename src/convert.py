@@ -14,6 +14,7 @@ from waymo_open_dataset.protos import end_to_end_driving_submission_pb2 as wod_e
 
 from h5_utils import write_element_to_hptr_h5_file
 from waymo_utils import load_waymo, get_ego_img, get_ego_states
+from view import plot_scenario
 
 if __name__ == "__main__":
 
@@ -70,6 +71,8 @@ if __name__ == "__main__":
 
         get_ego_img(data, e2ed_data)
         get_ego_states(data, e2ed_data, mode)
+
+        plot_scenario(e2ed_data)
 
         write_element_to_hptr_h5_file(
             out_file, str(num_samples), e2ed_data, metadata
