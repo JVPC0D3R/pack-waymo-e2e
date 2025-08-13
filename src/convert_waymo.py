@@ -12,9 +12,9 @@ from waymo_open_dataset.wdl_limited.camera.ops import py_camera_model_ops
 from waymo_open_dataset.protos import end_to_end_driving_data_pb2 as wod_e2ed_pb2
 from waymo_open_dataset.protos import end_to_end_driving_submission_pb2 as wod_e2ed_submission_pb2
 
-from h5_utils import write_element_to_hptr_h5_file
-from waymo_utils import load_waymo, get_ego_img, get_ego_states
-from view import plot_scenario
+from utils.h5_utils import write_element_to_hptr_h5_file
+from utils.waymo_e2e_utils import load_waymo, get_ego_img, get_ego_states
+from view.view import plot_scenario
 
 if __name__ == "__main__":
 

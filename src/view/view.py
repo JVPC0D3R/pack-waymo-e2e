@@ -80,6 +80,10 @@ def plot_scenario(e2ed_data):
     routing = ["driving straight", "turning left" , "turning right"]
 
     traj = e2ed_data["agent/pos"] # (36,2)
+    valid = e2ed_data["agent/valid"].astype(bool)
+
+    traj = traj[valid] # filter invalid
+
     intent = e2ed_data["agent/intent"][0] #(1,)
 
     current_pos = traj[CURRENT_TIME-1] # (2,)
@@ -103,6 +107,31 @@ def plot_scenario(e2ed_data):
     # Bottom subplot for 3D view
     ax_3d = fig.add_subplot(2, 1, 2, projection="3d", computed_zorder=False)
     ax_3d.view_init(elev=50.0, azim=-75)
+
+    if "agent/point_cloud" in e2ed_data:
+        point_cloud = e2ed_data["agent/point_cloud"]
+
+        distances = np.linalg.norm(point_cloud, axis=1)
+
+        
+        mask = (distances <= 25.0) & (point_cloud[:, 2] >= 0.5)
+        filtered_points = point_cloud[mask]
+        filtered_distances = distances[mask]
+
+        
+        ax_3d.scatter(
+            filtered_points[:, 0],
+            filtered_points[:, 1],
+            filtered_points[:, 2],
+            zdir='z',
+            c=filtered_distances,
+            cmap='viridis',
+            s=1,
+            alpha=0.4,
+            zorder=5,
+            label="point cloud"
+        )
+
 
     # Draw trajectory
     ax_3d.plot(traj[0:16, 0], traj[0:16, 1], zs=0, zdir='z',

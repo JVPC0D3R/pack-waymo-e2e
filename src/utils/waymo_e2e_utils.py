@@ -116,6 +116,8 @@ def get_ego_states(
             , axis = 1
         ) # [36, 2]
 
+        e2ed_data["agent/valid"] = np.ones(e2ed_data["agent/pos"].shape[0])
+
     # History positions (x, y)
     e2ed_data["history/agent/pos"] = np.stack(
         [
@@ -136,6 +138,8 @@ def get_ego_states(
     e2ed_data["history/agent/acc"] = np.stack(
         [data.past_states.accel_x, data.past_states.accel_y], axis=1
     ) # no z available [16, 2]
+
+    e2ed_data["history/agent/valid"] = np.ones(e2ed_data["history/agent/pos"].shape[0])
 
     # Rater Feedback
     if mode == "val":
