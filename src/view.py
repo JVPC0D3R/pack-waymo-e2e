@@ -130,4 +130,4 @@ def plot_scenario(e2ed_data):
     ax_3d.set_title(f"vehicle {routing[intent-1]}", fontsize=20)
 
     plt.tight_layout()
-    plt.show()
+    plt.show(block=True)

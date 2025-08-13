@@ -36,10 +36,17 @@ if __name__ == "__main__":
         help="Within this directory the files training.h5, validation.h5, and testing.h5 are generated.",
     )
 
+    parser.add_argument(
+    "--show",
+    action="store_true",
+    help="Show plots when enabled."
+    )
+
     args = parser.parse_args()
     mode = args.mode
     in_path = args.input
     out_path = args.output
+    show = args.show
 
     raw_train, raw_val, raw_test = load_waymo(in_path)
 
@@ -72,7 +79,8 @@ if __name__ == "__main__":
         get_ego_img(data, e2ed_data)
         get_ego_states(data, e2ed_data, mode)
 
-        plot_scenario(e2ed_data)
+        if show:
+            plot_scenario(e2ed_data)
 
         write_element_to_hptr_h5_file(
             out_file, str(num_samples), e2ed_data, metadata
