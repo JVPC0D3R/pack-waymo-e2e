@@ -108,13 +108,13 @@ def plot_scenario(e2ed_data):
     ax_3d = fig.add_subplot(2, 1, 2, projection="3d", computed_zorder=False)
     ax_3d.view_init(elev=50.0, azim=-75)
 
-    if "agent/point_cloud" in e2ed_data:
-        point_cloud = e2ed_data["agent/point_cloud"]
+    if "agent/point_clouds" in e2ed_data:
+        point_cloud = e2ed_data["agent/point_clouds"][CURRENT_TIME-1, :, :]
 
         distances = np.linalg.norm(point_cloud, axis=1)
 
         
-        mask = (distances <= 25.0) & (point_cloud[:, 2] >= 0.5)
+        mask = (distances <= 50.0) & (point_cloud[:, 2] >= 0.5)
         filtered_points = point_cloud[mask]
         filtered_distances = distances[mask]
 

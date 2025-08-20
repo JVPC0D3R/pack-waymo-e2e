@@ -1,7 +1,10 @@
 import os
 import math
 import numpy as np
-from typing import Tuple
+import json
+from tqdm import tqdm
+from PIL import Image
+from typing import Tuple, List, Dict
 
 def load_traj(
         path: str,
@@ -39,6 +42,7 @@ def slice_traj(
 
 def down_sample_traj(
         traj: np.array,
+        idx: np.array,
         rec_freq: int = 10, # Hz
         out_freq: int = 4, # Hz
         max_time: float = 9.0 # seconds
@@ -68,12 +72,9 @@ def down_sample_traj(
         ])
         traj = np.pad(traj, ((0, pad_len), (0, 0)), mode='constant', constant_values=0)
     
-
-    t_target = np.arange(0, max_time, 1 / out_freq)
-    idx = np.round(t_target * rec_freq).astype(int)
     idx = np.clip(idx, 0, len(traj) - 1)
 
-    return traj[idx], valid[idx], idx
+    return traj[idx], valid[idx]
 
 def to_agent_centric_traj(
         traj: np.array,
@@ -196,7 +197,7 @@ def load_pointcloud(
         path: str,
         file_name: str,
         sub_folder: str = "point_clouds/default/"
-):
+)-> np.array:
     """Loads point cloud from .pcd file.
 
     Args:
@@ -227,9 +228,7 @@ def load_pointcloud(
         fields = next(h for h in header if h.startswith('FIELDS')).split()[1:]
         sizes = list(map(int, next(h for h in header if h.startswith('SIZE')).split()[1:]))
         types = next(h for h in header if h.startswith('TYPE')).split()[1:]
-        counts = list(map(int, next(h for h in header if h.startswith('COUNT')).split()[1:]))
 
-        
         np_types = []
         for size, typ in zip(sizes, types):
             if typ == 'F':
@@ -252,3 +251,295 @@ def load_pointcloud(
 
     xyz = np.vstack([points['x'], points['y'], points['z']]).T.astype(np.float32)
     return xyz
+
+
+def load_img(
+        path: str,
+        file_name: str,
+        sub_folder: str
+)-> np.array:
+    """Loads image as np.array
+
+    Args:
+        path: folder/to/parent/folder
+        sub_folder: sub/folder
+        file_name: img.jpg
+
+    Returns:
+        point_cloud: (H, W, 3)
+    """
+    file_path = os.path.join(path, sub_folder, file_name)
+
+    img = np.array(Image.open(file_path))
+
+    return img
+
+
+class MRTE2E():
+    def __init__(
+            self,
+            root: str,
+            rec_freq: int,
+            out_freq: int,
+            hist_time: float,
+            fut_time: float,
+            expected_img_shape: Tuple[int, int, int],
+            expected_pc_shape: Tuple[int, int]
+    ):
+        self.root = root
+
+        self.rec_freq = rec_freq
+        self.out_freq = out_freq
+        self.hist_time = hist_time
+        self.fut_time = fut_time
+
+        self.expected_img_shape = expected_img_shape
+        self.expected_pc_shape = expected_pc_shape
+
+        self.current_t = int(self.hist_time * self.out_freq)
+
+        self.total_time = hist_time + fut_time
+
+        self.base_sub_folders = [
+            "camera_front",
+            "camera_front_right",
+            "camera_front_left",
+            "camera_back",
+            "camera_back_right",
+            "camera_back_left",
+            "point_clouds",
+            "trajectory",
+        ]
+
+        self.inter_sub_folders = [
+            "annotations"
+        ]
+
+        self.rec_folder_base = "mrt_e2e_rec_"
+
+    def check_recordings(
+            self,
+            root: str,
+    ) -> Tuple[bool, List]:
+        """
+        Checks if all recordings have expected subfolders
+        
+        Args:
+            root: path/to/mrt/dataset
+        
+        Returns:
+            OK: True if data is correct
+            recordings: sorted folder names
+        """
+
+        try:
+            entries = os.listdir(root)
+        except OSError as e:
+            print(f"ERROR: cannot list '{root}': {e}")
+            return False, []
+        
+        recordings = []
+        for rec in entries:
+            path = os.path.join(root, rec)
+
+            if os.path.isdir(path) and rec.startswith(self.rec_folder_base):
+                suffix = rec[len(self.rec_folder_base):]
+                if suffix.isdigit():
+                    recordings.append((int(suffix), rec))
+
+        if not recordings:
+            print(f"ERROR: No recordings have been found at: {root}")
+            return False, []
+
+        recordings.sort(key=lambda t:t[0])
+
+        # check recordings contain subfolders
+        for idx, rec in recordings:
+
+            rec_path = os.path.join(root, rec)
+            missing = [sub for sub in self.base_sub_folders
+                       if not os.path.isdir(os.path.join(rec_path, sub))]
+
+            if missing:
+                for miss in missing:
+                    print(f"ERROR: missing {miss} in {rec_path}")
+                return False, []
+
+        return True, recordings
+    
+    def load_scenario_annotations(
+            self,
+            root: str,
+            name: str
+        ):
+
+        path = os.path.join(root,name,"scenarios.json")
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+            if name != data["name"]:
+                raise ValueError(f"Recording folder name ({name}) does not match ({data['name']})")
+
+            if self.out_freq != int(data["frequency"]):
+                raise ValueError(f"File frequency {data['frequency']} Hz does not match selected frequency {self.out_freq} Hz")
+        
+            if self.hist_time != int(data["history_duration"]):
+                raise ValueError(f"File history duration {data['history_duration']} s does not match selected duration {self.hist_time} s")
+            
+            if self.fut_time != int(data["future_duration"]):
+                raise ValueError(f"File future duration {data['future_duration']} s does not match selected duration {self.fut_time} s")
+
+            return data['scenarios']
+    
+    def load(self):
+
+        success, self.recordings = self.check_recordings(self.root)
+
+        if not success:
+            raise ValueError(f"No valid data was found at {self.root}.")
+
+        print(f"\nFound {len(self.recordings)} recording{'s'*(len(self.recordings)>1)} from MRT-E2E")
+
+        return self.recordings
+
+    def get_idx(self):
+
+        t_target = np.arange(0, int(self.total_time), 1 / self.out_freq)
+        
+        return np.round(t_target * self.rec_freq).astype(int)
+    
+    def process_traj(
+            self,
+            path: str,
+            mode: str,
+            e2ed_data: Dict,
+            time_step: int,
+            idx: np.array,
+            like_waymo: bool = True
+    ):
+        # get traj from file
+        traj = load_traj(path, sub_folder= self.base_sub_folders[-1])
+
+        # select scenario starting time step
+        traj = slice_traj(traj, time_step)
+
+        # get traj and valid mask at out freq
+        traj, valid = down_sample_traj(
+            traj, 
+            idx, 
+            self.rec_freq, 
+            self.out_freq, 
+            self.total_time
+            )
+
+        # convert to agent centric
+        pos = to_agent_centric_traj(
+            traj,
+            valid,
+            int(self.hist_time),
+            self.out_freq
+            )
+        
+        vel = derivative(
+            pos,
+            valid,
+            self.out_freq
+        )
+
+        acc = derivative(
+            vel,
+            valid,
+            self.out_freq
+        )
+
+        
+        if like_waymo:
+            if mode != "test":
+                e2ed_data["agent/pos"] = pos[:,:2]
+                e2ed_data["agent/valid"] = valid
+
+                e2ed_data["gt/pos"] = pos[self.current_t:,:2]
+
+            e2ed_data["history/agent/pos"] = pos[:self.current_t,:2]
+            e2ed_data["history/agent/vel"] = vel[:self.current_t,:2]
+            e2ed_data["histoy/agent/acc"] = acc[: self.current_t,:2]
+            e2ed_data["history/agent/valid"] = valid[:self.current_t]
+        
+        else:
+            if mode != "test":
+                e2ed_data["agent/pos"] = pos[:,:]
+                e2ed_data["agent/vel"] = vel[:,:]
+                e2ed_data["agent/acc"] = acc[:,:]
+                e2ed_data["agent/valid"] = valid
+
+                e2ed_data["gt/pos"] = pos[self.current_t:,:]
+
+            e2ed_data["history/agent/pos"] = pos[:self.current_t,:]
+            e2ed_data["history/agent/vel"] = vel[:self.current_t,:]
+            e2ed_data["histoy/agent/acc"] = acc[: self.current_t,:]
+            e2ed_data["history/agent/valid"] = valid[:self.current_t]
+
+
+    def process_sensors(
+            self,
+            path: str,
+            mode: str,
+            e2ed_data: Dict,
+            time_step: int,
+            idx: np.array,
+            like_waymo: bool = True,
+            img_ext: str = ".jpg",
+            point_cloud_ext: str = ".pcd"
+    ):
+
+        # CAMERAS
+        for cam in self.base_sub_folders[:-2]:
+            video_buffer = []
+            video_valid_buffer = []
+            for i in idx:
+
+                file_name = f"{i+time_step:010d}{img_ext}"
+
+                try:
+                    img = load_img(
+                        path,
+                        file_name,
+                        cam
+                    )
+                    valid_img = np.ones(1)
+                except:
+                    img = np.zeros(self.expected_img_shape)
+                    valid_img = np.zeros(1)
+
+                if i == idx[self.current_t-1]:
+                    e2ed_data[f"agent/{cam.removeprefix('camera_')}/img"] = img
+                    e2ed_data[f"agent/{cam.removeprefix('camera_')}/valid_img"] = valid_img
+
+                elif not like_waymo and i <= idx[self.current_t-1]:
+                    video_buffer.append(img)
+                    video_valid_buffer.append(valid_img)
+
+            if not like_waymo:
+                e2ed_data[f"agent/{cam.removeprefix('camera_')}/video"] = np.stack(video_buffer, axis=0)
+                e2ed_data[f"agent/{cam.removeprefix('camera_')}/valid_video"] = np.stack(video_buffer, axis=0)
+
+
+        # POINTCLOUD
+        if not like_waymo:
+            pc_buffer = []
+            for i in idx:
+                file_name = f"{i+time_step:010d}{point_cloud_ext}"
+
+                try:
+                    pc = load_pointcloud(
+                        path,
+                        file_name
+                    )
+
+                except:
+                    pc = np.zeros(self.expected_pc_shape)
+
+                pc_buffer.append(pc)
+
+            e2ed_data[f"agent/point_clouds"] = np.stack(pc_buffer, axis=0)
