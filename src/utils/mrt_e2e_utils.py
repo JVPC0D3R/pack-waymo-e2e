@@ -266,7 +266,7 @@ def load_img(
         file_name: img.jpg
 
     Returns:
-        point_cloud: (H, W, 3)
+        img: (H, W, 3)
     """
     file_path = os.path.join(path, sub_folder, file_name)
 
@@ -543,3 +543,131 @@ class MRTE2E():
                 pc_buffer.append(pc)
 
             e2ed_data[f"agent/point_clouds"] = np.stack(pc_buffer, axis=0)
+
+    def process_ann(
+            self,
+            path: str,
+            idx: np.array,
+            e2ed_data: Dict,
+            file_name: str = "default.json",
+            sub_folder: str = "annotations/",
+            max_agents: int = 64,
+            ) -> np.array:
+        """Loads traffic agent annotations.
+
+        Args:
+            path: folder/to/parent/folder
+            idx: np.array
+            sub_folder: sub/folder
+            file_name: filename.json
+
+        Returns:
+            pos:   (N, T, 3)
+            yaw:   (N, T,)
+            size:  (N, T, 3)
+            valid: (N, T,)
+            type:  (N,)
+        """
+
+        with open(os.path.join(path, sub_folder, file_name), "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+
+            ann_pos = {}
+            ann_yaw = {}
+            ann_size = {}
+            ann_valid = {}
+            ann_type = {}
+
+            for cnt, i in enumerate(idx):
+                not_updated = {k: True for k in ann_pos}
+                for frame in data['items']:
+                    if i == int(frame['id']):
+                        
+                        for ann in frame['annotations']:
+
+                            track_id = ann['attributes']['track_id']
+
+                            if track_id not in ann_pos and len(ann_pos) < max_agents:
+                                ann_pos[track_id] = [[0.0, 0.0, 0.0] for _ in range(cnt)] + [ann['position']]
+                                ann_yaw[track_id] = [0.0 for _ in range(cnt)] + [ann['rotation'][2]]
+                                ann_size[track_id] = [[0.0, 0.0, 0.0] for _ in range(cnt)] + [ann['scale']]
+                                ann_type[track_id] = ann['label_id']
+                                ann_valid[track_id] = [0.0 for _ in range(cnt)] + [1]
+
+                            else:
+                                ann_pos[track_id].append(ann['position'])
+                                ann_yaw[track_id].append(ann['rotation'][2])
+                                ann_size[track_id].append(ann['scale'])
+                                ann_valid[track_id].append(1)
+
+                                not_updated[track_id] = False
+                        break
+
+                for pad_idx in not_updated:
+
+                    if not_updated[pad_idx]:
+
+                        ann_pos[pad_idx].append([0.0, 0.0, 0.0])
+                        ann_yaw[pad_idx].append(0.0)
+                        ann_size[pad_idx].append([0.0, 0.0, 0.0])
+                        ann_valid[pad_idx].append(0)
+
+                        not_updated[pad_idx] = False
+        
+            ann_pos = np.array(list(ann_pos.values()))
+            ann_yaw = np.array(list(ann_yaw.values()))
+            ann_size = np.array(list(ann_size.values()))
+            ann_valid = np.array(list(ann_valid.values()))
+            ann_type = np.array(list(ann_type.values()))
+            
+                                
+            pad_size = int(max_agents - ann_pos.shape[0])
+
+            if pad_size > 0:
+
+                ann_pos = np.concatenate(
+                    [
+                        ann_pos,
+                        np.zeros((pad_size, idx.shape[0], 3), dtype=float)
+                    ],
+                    axis=0
+                )
+
+                ann_yaw = np.concatenate(
+                    [
+                        ann_yaw,
+                        np.zeros((pad_size, idx.shape[0]), dtype=float)
+                    ],
+                    axis=0
+                )
+
+                ann_size = np.concatenate(
+                    [
+                        ann_size,
+                        np.zeros((pad_size, idx.shape[0], 3), dtype=float)
+                    ],
+                    axis=0
+                )
+
+                ann_valid = np.concatenate(
+                    [
+                        ann_valid,
+                        np.zeros((pad_size, idx.shape[0]), dtype=float)
+                    ],
+                    axis=0
+                )
+
+                ann_type = np.concatenate(
+                    [
+                        ann_type,
+                        np.zeros((pad_size), dtype=float)
+                    ],
+                    axis=0
+                )
+
+            e2ed_data["other/pos"] = ann_pos
+            e2ed_data["other/yaw"] = ann_yaw
+            e2ed_data["other/size"] = ann_size
+            e2ed_data["other/valid"] = ann_valid
+            e2ed_data["other/type"] = ann_type

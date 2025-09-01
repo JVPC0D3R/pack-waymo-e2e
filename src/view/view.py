@@ -66,6 +66,24 @@ def rotate_bbox_zaxis(bbox, angle):
 
     return np.array(_bbox)
 
+pedestrian = np.array(
+    [
+        (-0.3, -0.3, 0),  # left bottom front
+        (-0.3, 0.3, 0),  # left bottom back
+        (0.3, -0.3, 0),  # right bottom front
+        (-0.3, -0.3, 2),  # left top front -> height
+    ]
+)
+
+cyclist = np.array(
+    [
+        (-1, -0.3, 0),  # left bottom front
+        (-1, 0.3, 0),  # left bottom back
+        (1, -0.3, 0),  # right bottom front
+        (-1, -0.3, 2),  # left top front -> height
+    ]
+)
+
 car = np.array(
     [
         (-2.25, -1, 0),  # left bottom front
@@ -131,6 +149,32 @@ def plot_scenario(e2ed_data):
             zorder=5,
             label="point cloud"
         )
+
+    if "other/pos" in e2ed_data:
+
+        other_pos = e2ed_data["other/pos"][:, CURRENT_TIME-1, :]
+        other_yaw = e2ed_data["other/yaw"][:, CURRENT_TIME-1]
+        other_type = e2ed_data["other/type"][:]
+        other_valid = e2ed_data["other/valid"][:, CURRENT_TIME-1]
+
+        for i in range(other_pos.shape[0]):
+
+            if other_valid[i] != 0.0 and np.linalg.norm(other_pos[i,:], axis=0) < 20:
+                
+                if other_type[i] == 1:
+                    other_bbox = rotate_bbox_zaxis(pedestrian, other_yaw[i])
+                    other_color = "orange"
+
+                elif other_type[i] == 2 or other_type[i] == 7 or other_type[i] == 8:
+                    other_bbox = rotate_bbox_zaxis(cyclist, other_yaw[i])
+                    other_color = "green"
+
+                else:
+                    other_bbox = rotate_bbox_zaxis(car, other_yaw[i])
+                    other_color = "purple"
+                other_bbox = shift_cuboid(float(other_pos[i,0]), float(other_pos[i,1]), other_bbox)
+
+                add_cube(other_bbox, ax_3d, color=other_color, alpha=0.1)
 
 
     # Draw trajectory

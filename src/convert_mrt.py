@@ -9,7 +9,7 @@ from typing import Tuple
 from view.view import plot_scenario
 
 from utils.h5_utils import write_element_to_hptr_h5_file
-from utils.mrt_e2e_utils import MRTE2E 
+from utils.mrt_e2e_utils import MRTE2E
 
 if __name__ == "__main__":
 
@@ -109,6 +109,12 @@ if __name__ == "__main__":
                 idx,
                 like_waymo = True
                 )
+            
+            mrt.process_ann(
+                os.path.join(in_path, rec[1]),
+                idx + start,
+                e2ed_data
+            )
     
             if show:
                 plot_scenario(e2ed_data)
