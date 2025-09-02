@@ -68,6 +68,15 @@ if __name__ == "__main__":
     hist_time = 4.0
     fut_time = 5.0
 
+    if mode == "train":
+        out_file = out_path + "training.h5"
+
+    elif mode == "val":
+        out_file = out_path + "validation.h5"
+
+    elif mode == "test":
+        out_file = out_path + "testing.h5"
+
     mrt = MRTE2E(
         root = in_path,
         rec_freq = rec_freq,
@@ -79,6 +88,7 @@ if __name__ == "__main__":
     )
 
     recordings = mrt.load()
+    num_samples = 0
 
     pbar = tqdm(recordings, desc="Processing data...")
     for rec in pbar:
@@ -86,6 +96,8 @@ if __name__ == "__main__":
         for ann in mrt.load_scenario_annotations(in_path, rec[1]):
 
             e2ed_data = {}
+            metadata = {}
+            metadata["scenario_id"] = rec[1]
 
             start = int(ann["start"])
             e2ed_data["agent/intent"] = np.array([int(ann["intent"])])
@@ -119,5 +131,9 @@ if __name__ == "__main__":
             if show:
                 plot_scenario(e2ed_data)
 
-            #TODO save h5 files
+            write_element_to_hptr_h5_file(
+            out_file, str(num_samples), e2ed_data, metadata
+            )
+
+            num_samples += 1
 
