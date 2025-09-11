@@ -104,6 +104,15 @@ if __name__ == "__main__":
 
             idx = mrt.get_idx()
 
+            mrt.process_traj(
+                os.path.join(in_path, rec[1]),
+                mode,
+                e2ed_data,
+                start,
+                idx,
+                like_waymo = True
+                )
+
             mrt.process_sensors(
                 os.path.join(in_path, rec[1]),
                 mode,
@@ -113,15 +122,6 @@ if __name__ == "__main__":
                 like_waymo = True
                 )
 
-            mrt.process_traj(
-                os.path.join(in_path, rec[1]),
-                mode,
-                e2ed_data,
-                start,
-                idx,
-                like_waymo = True
-                )
-            
             mrt.process_ann(
                 os.path.join(in_path, rec[1]),
                 idx + start,
